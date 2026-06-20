@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wii U Video Channel</title>
+    <style>
+        :root {
+            --fa-blue: #00d2ff;
+            --fa-green: #39ff14;
+            --wiiu-blue: #00aeef;
+            --glass-bg: rgba(255, 255, 255, 0.45);
+            --glass-border: rgba(255, 255, 255, 0.6);
+            --gloss: linear-gradient(to bottom, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.1) 50%, rgba(0,0,0,0.05) 50%, rgba(255,255,255,0.2) 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 120%, #bbf2f6 0%, #86e3ce 40%, #d1f7ff 80%);
+            background-attachment: fixed;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 40px 20px;
+            position: relative;
+        }
+
+        /* Ambient Frutiger Aero Bubbles */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 10%; left: 15%; width: 120px; height: 120px;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+            border: 2px solid rgba(255,255,255,0.4);
+            border-radius: 50%;
+            box-shadow: inset -10px -10px 25px rgba(0,210,255,0.3), 0 10px 20px rgba(0,0,0,0.05);
+            pointer-events: none;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: 15%; right: 10%; width: 180px; height: 180px;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 60%);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            box-shadow: inset -15px -15px 35px rgba(57,255,20,0.2);
+            pointer-events: none;
+        }
+
+        /* Grid Layout */
+        .menu-container {
+            display: grid;
+            grid-template-columns: repeat(5, 145px);
+            grid-gap: 24px;
+            justify-content: center;
+            max-width: 900px;
+            z-index: 2;
+        }
+
+        /* Glossy Wii U Tiles */
+        .tile {
+            width: 145px;
+            height: 145px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px) saturate(160%);
+            -webkit-backdrop-filter: blur(12px) saturate(160%);
+            border: 2px solid var(--glass-border);
+            border-radius: 32px;
+            box-shadow: 0 8px 32px rgba(31, 135, 166, 0.15), 
+                        inset 0 4px 10px rgba(255,255,255,0.6);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tile::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--gloss);
+            pointer-events: none;
+            border-radius: 30px;
+        }
+
+        .tile:hover {
+            transform: scale(1.1) translateY(-5px);
+            border-color: #ffffff;
+            box-shadow: 0 12px 30px rgba(0, 210, 255, 0.5), 
+                        inset 0 0 15px rgba(255,255,255,0.8);
+        }
+
+        .tile:active {
+            transform: scale(0.96);
+        }
+
+        .tile video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+            border-radius: 30px;
+        }
+
+        /* Overlay Layout */
+        .player-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at center, rgba(235,253,255,0.92) 0%, rgba(200,242,245,0.96) 100%);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            z-index: 100;
+        }
+
+        .player-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* GamePad Housing */
+        .gamepad-housing {
+            background: linear-gradient(135deg, #ffffff 0%, #f4fcfd 100%);
+            border: 4px solid rgba(255, 255, 255, 0.8);
+            border-radius: 65px;
+            width: 95%;
+            max-width: 920px;
+            padding: 35px 75px;
+            box-shadow: 0 30px 70px rgba(0, 100, 120, 0.2),
+                        inset 0 4px 20px rgba(255,255,255,1);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Decorative thumbsticks */
+        .gamepad-housing::before, .gamepad-housing::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(to bottom, #ffffff, #e1edf0);
+            border: 2px solid rgba(0,0,0,0.05);
+            border-radius: 50%;
+            transform: translateY(-50%);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05), 0 4px 10px rgba(0,0,0,0.05);
+        }
+        .gamepad-housing::before { left: 25px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.05), 0 30px 0 #e8f4f6, 0 -30px 0 #e8f4f6; } 
+        .gamepad-housing::after { right: 25px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.05), 0 30px 0 #e8f4f6, 0 -30px 0 #e8f4f6; }
+
+        .screen-container {
+            width: 100%;
+            background: #000000;
+            border-radius: 16px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            box-shadow: 0 0 0 3px #182224, 0 15px 40px rgba(0,0,0,0.4);
+            position: relative;
+        }
+
+        .main-player {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Controls Panel */
+        .controls-container {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+            gap: 18px;
+        }
+
+        /* Full Bar Timeline Scrubber (Frutiger Aero Style) */
+        .scrubber-wrapper {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 5px;
+        }
+
+        .time-display {
+            font-size: 12px;
+            font-weight: bold;
+            color: #437687;
+            font-family: monospace;
+            min-width: 45px;
+        }
+
+        .timeline-container {
+            flex-grow: 1;
+            height: 14px;
+            background: rgba(0, 174, 239, 0.08);
+            border: 2px solid rgba(0, 174, 239, 0.15);
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        /* High gloss shine on scrubber fill */
+        .timeline-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to bottom, #7be1ff 0%, #00b2ee 40%, #008cbccc 100%);
+            border-radius: 8px;
+            position: relative;
+            transition: width 0.05s linear;
+        }
+
+        .timeline-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 40%;
+            background: rgba(255,255,255,0.4);
+            border-radius: 8px 8px 0 0;
+        }
+
+        /* Floating handle knob */
+        .timeline-handle {
+            width: 20px;
+            height: 20px;
+            background: radial-gradient(circle at 35% 35%, #ffffff 0%, #dcf4ff 60%, #a2e0f9 100%);
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 0%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 3px 8px rgba(0, 120, 180, 0.4), inset 0 -2px 5px rgba(0,0,0,0.1);
+            transition: left 0.05s linear;
+            pointer-events: none;
+        }
+
+        /* Bottom Row Action Layout */
+        .button-row {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-btn, .select-wrapper select {
+            background: linear-gradient(to bottom, #ffffff 0%, #edf9fc 100%);
+            border: 2px solid rgba(0, 174, 239, 0.25);
+            border-radius: 18px;
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #296073;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 174, 239, 0.08), inset 0 2px 4px #ffffff;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-btn:hover, .select-wrapper select:hover {
+            border-color: var(--wiiu-blue);
+            color: #0087ba;
+            box-shadow: 0 6px 15px rgba(0, 174, 239, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .control-btn:active {
+            transform: translateY(1px);
+        }
+
+        .left-controls, .right-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .select-wrapper {
+            position: relative;
+        }
+
+        .select-wrapper select {
+            appearance: none;
+            padding-right: 35px;
+            outline: none;
+        }
+
+        .select-wrapper::after {
+            content: '▼';
+            font-size: 9px;
+            color: #528c9e;
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+        }
+
+        .close-btn {
+            border-color: rgba(255, 82, 82, 0.3);
+            color: #a33c3c;
+            background: linear-gradient(to bottom, #ffffff 0%, #fff2f2 100%);
+        }
+        .close-btn:hover {
+            border-color: #ff5252;
+            color: #ff3333;
+            box-shadow: 0 6px 15px rgba(255, 82, 82, 0.25);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="menu-container" id="menu-grid"></div>
+
+    <div class="player-overlay" id="player-overlay">
+        <div class="gamepad-housing">
+            <div class="screen-container">
+                <video class="main-player" id="video-element"></video>
+            </div>
+            
+            <div class="controls-container">
+                <div class="scrubber-wrapper">
+                    <span class="time-display" id="time-current">0:00</span>
+                    <div class="timeline-container" id="timeline-bar">
+                        <div class="timeline-fill" id="timeline-fill"></div>
+                        <div class="timeline-handle" id="timeline-handle"></div>
+                    </div>
+                    <span class="time-display" id="time-total">0:00</span>
+                </div>
+
+                <div class="button-row">
+                    <div class="left-controls">
+                        <button class="control-btn" id="skip-back" title="Rewind 10s">◂◂ 10s</button>
+                        <button class="control-btn" id="play-btn" style="min-width: 90px;">PAUSE</button>
+                        <button class="control-btn" id="skip-forward" title="Fast Forward 10s">10s ▸▸</button>
+                        <button class="control-btn" id="loop-btn">LOOP: OFF</button>
+                        
+                        <div class="select-wrapper">
+                            <select id="speed-select">
+                                <option value="0.5">0.5x Speed</option>
+                                <option value="1" selected>1.0x Speed</option>
+                                <option value="1.5">1.5x Speed</option>
+                                <option value="2">2.0x Speed</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="right-controls">
+                        <button class="control-btn close-btn" id="close-btn">CLOSE</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================================
+        // REPOSITORY FILENAMES ARRAY LIST
+        // ========================================================
+        const videoFiles = [
+            "video1.mp4",
+            "video2.mov",
+            "clip3.mkv",
+            "intro.mp4"
+        ];
+
+        const menuGrid = document.getElementById('menu-grid');
+        const playerOverlay = document.getElementById('player-overlay');
+        const videoElement = document.getElementById('video-element');
+        
+        // Control Engines
+        const playBtn = document.getElementById('play-btn');
+        const loopBtn = document.getElementById('loop-btn');
+        const speedSelect = document.getElementById('speed-select');
+        const closeBtn = document.getElementById('close-btn');
+        const skipBackBtn = document.getElementById('skip-back');
+        const skipForwardBtn = document.getElementById('skip-forward');
+
+        // Timeline Bar Elements
+        const timelineBar = document.getElementById('timeline-bar');
+        const timelineFill = document.getElementById('timeline-fill');
+        const timelineHandle = document.getElementById('timeline-handle');
+        const timeCurrent = document.getElementById('time-current');
+        const timeTotal = document.getElementById('time-total');
+
+        let isDraggingTimeline = false;
+
+        // Populate standard system channels
+        function initRepositoryChannels() {
+            videoFiles.forEach(fileName => {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                
+                const previewVideo = document.createElement('video');
+                previewVideo.src = fileName;
+                previewVideo.muted = true;
+                previewVideo.playsInline = true;
+                
+                previewVideo.addEventListener('loadeddata', () => {
+                    previewVideo.currentTime = Math.min(0.5, previewVideo.duration / 3);
+                });
+
+                tile.appendChild(previewVideo);
+                menuGrid.appendChild(tile);
+
+                tile.addEventListener('click', () => {
+                    videoElement.src = fileName;
+                    playerOverlay.classList.add('active');
+                    videoElement.play();
+                    playBtn.textContent = "PAUSE";
+                });
+            });
+        }
+
+        // Playback Core Mechanics
+        playBtn.addEventListener('click', () => {
+            if (videoElement.paused) {
+                videoElement.play();
+                playBtn.textContent = "PAUSE";
+            } else {
+                videoElement.pause();
+                playBtn.textContent = "PLAY";
+            }
+        });
+
+        loopBtn.addEventListener('click', () => {
+            videoElement.loop = !videoElement.loop;
+            loopBtn.textContent = videoElement.loop ? "LOOP: ON" : "LOOP: OFF";
+            loopBtn.style.borderColor = videoElement.loop ? "rgba(57, 255, 20, 0.5)" : "rgba(0, 174, 239, 0.25)";
+        });
+
+        speedSelect.addEventListener('change', (e) => {
+            videoElement.playbackRate = parseFloat(e.target.value);
+        });
+
+        // 10-Second Skip Buttons
+        skipBackBtn.addEventListener('click', () => {
+            videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
+        });
+
+        skipForwardBtn.addEventListener('click', () => {
+            videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
+        });
+
+        // Formatting timestamps utility function
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        // Live updating progress tracker
+        videoElement.addEventListener('timeupdate', () => {
+            if (!isDraggingTimeline && videoElement.duration) {
+                const percentage = (videoElement.currentTime / videoElement.duration) * 100;
+                updateTimelineUI(percentage);
+                timeCurrent.textContent = formatTime(videoElement.currentTime);
+            }
+        });
+
+        videoElement.addEventListener('loadedmetadata', () => {
+            timeTotal.textContent = formatTime(videoElement.duration);
+            updateTimelineUI(0);
+        });
+
+        function updateTimelineUI(percent) {
+            timelineFill.style.width = `${percent}%`;
+            timelineHandle.style.left = `${percent}%`;
+        }
+
+        // Scrubber Skip / Peek Interactions
+        function setVideoTimeFromScrubber(e) {
+            if (!videoElement.duration) return;
+            const rect = timelineBar.getBoundingClientRect();
+            let offsetX = e.clientX - rect.left;
+            offsetX = Math.max(0, Math.min(offsetX, rect.width)); // Constraint bounds
+            const percentage = offsetX / rect.width;
+            
+            updateTimelineUI(percentage * 100);
+            videoElement.currentTime = percentage * videoElement.duration;
+            timeCurrent.textContent = formatTime(videoElement.currentTime);
+        }
+
+        timelineBar.addEventListener('mousedown', (e) => {
+            isDraggingTimeline = true;
+            setVideoTimeFromScrubber(e);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDraggingTimeline) {
+                setVideoTimeFromScrubber(e);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDraggingTimeline = false;
+        });
+
+        // Close System Deck
+        closeBtn.addEventListener('click', () => {
+            videoElement.pause();
+            playerOverlay.classList.remove('active');
+            videoElement.src = "";
+            timeCurrent.textContent = "0:00";
+            timeTotal.textContent = "0:00";
+        });
+
+        initRepositoryChannels();
+    </script>
+</body>
+</html>
