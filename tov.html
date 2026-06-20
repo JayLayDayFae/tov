@@ -114,6 +114,7 @@
             object-fit: cover;
             pointer-events: none;
             border-radius: 30px;
+            background: #000; /* Dark canvas backer for initializing thumbnails */
         }
 
         /* Overlay Layout */
@@ -194,7 +195,7 @@
             gap: 18px;
         }
 
-        /* Full Bar Timeline Scrubber (Frutiger Aero Style) */
+        /* Full Bar Timeline Scrubber */
         .scrubber-wrapper {
             width: 100%;
             display: flex;
@@ -222,7 +223,6 @@
             box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
         }
 
-        /* High gloss shine on scrubber fill */
         .timeline-fill {
             height: 100%;
             width: 0%;
@@ -240,7 +240,6 @@
             border-radius: 8px 8px 0 0;
         }
 
-        /* Floating handle knob */
         .timeline-handle {
             width: 20px;
             height: 20px;
@@ -376,21 +375,10 @@
     </div>
 
     <script>
-        // ========================================================
-        // REPOSITORY FILENAMES ARRAY LIST
-        // ========================================================
-        const videoFiles = [
-            "video1.mp4",
-            "video2.mov",
-            "clip3.mkv",
-            "intro.mp4"
-        ];
-
         const menuGrid = document.getElementById('menu-grid');
         const playerOverlay = document.getElementById('player-overlay');
         const videoElement = document.getElementById('video-element');
         
-        // Control Engines
         const playBtn = document.getElementById('play-btn');
         const loopBtn = document.getElementById('loop-btn');
         const speedSelect = document.getElementById('speed-select');
@@ -398,7 +386,6 @@
         const skipBackBtn = document.getElementById('skip-back');
         const skipForwardBtn = document.getElementById('skip-forward');
 
-        // Timeline Bar Elements
         const timelineBar = document.getElementById('timeline-bar');
         const timelineFill = document.getElementById('timeline-fill');
         const timelineHandle = document.getElementById('timeline-handle');
@@ -407,26 +394,48 @@
 
         let isDraggingTimeline = false;
 
-        // Populate standard system channels
-        function initRepositoryChannels() {
-            videoFiles.forEach(fileName => {
+        // Fetch links directly from vids.txt inside the directory path
+        async function loadVideosFromTxt() {
+            try {
+                const response = await fetch('vids.txt');
+                if (!response.ok) throw new Error('Could not find vids.txt');
+                
+                const text = await response.text();
+                // Split lines, clean white space, filter out completely empty entries
+                const urls = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+                
+                buildMenuGrid(urls);
+            } catch (error) {
+                console.error("Error reading sources:", error);
+                // Fail-safe placeholder visual if text file is missing
+                menuGrid.innerHTML = `<div style="color:#296073; font-weight:bold; grid-column:span 5; text-align:center;">Make sure vids.txt exists in this folder!</div>`;
+            }
+        }
+
+        // Dynamically instantiate the cards from the parsed link text array
+        function buildMenuGrid(videoUrls) {
+            menuGrid.innerHTML = ''; // Reset frame
+            
+            videoUrls.forEach(url => {
                 const tile = document.createElement('div');
                 tile.className = 'tile';
                 
                 const previewVideo = document.createElement('video');
-                previewVideo.src = fileName;
+                previewVideo.src = url;
                 previewVideo.muted = true;
                 previewVideo.playsInline = true;
+                previewVideo.preload = "metadata";
                 
+                // Attempt to display visual context from inside the link stream frame
                 previewVideo.addEventListener('loadeddata', () => {
-                    previewVideo.currentTime = Math.min(0.5, previewVideo.duration / 3);
+                    previewVideo.currentTime = Math.min(1, previewVideo.duration / 4);
                 });
 
                 tile.appendChild(previewVideo);
                 menuGrid.appendChild(tile);
 
                 tile.addEventListener('click', () => {
-                    videoElement.src = fileName;
+                    videoElement.src = url;
                     playerOverlay.classList.add('active');
                     videoElement.play();
                     playBtn.textContent = "PAUSE";
@@ -434,7 +443,7 @@
             });
         }
 
-        // Playback Core Mechanics
+        // Core Player Input Listeners
         playBtn.addEventListener('click', () => {
             if (videoElement.paused) {
                 videoElement.play();
@@ -455,7 +464,6 @@
             videoElement.playbackRate = parseFloat(e.target.value);
         });
 
-        // 10-Second Skip Buttons
         skipBackBtn.addEventListener('click', () => {
             videoElement.currentTime = Math.max(0, videoElement.currentTime - 10);
         });
@@ -464,7 +472,6 @@
             videoElement.currentTime = Math.min(videoElement.duration, videoElement.currentTime + 10);
         });
 
-        // Formatting timestamps utility function
         function formatTime(seconds) {
             if (isNaN(seconds)) return "0:00";
             const mins = Math.floor(seconds / 60);
@@ -472,7 +479,6 @@
             return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
         }
 
-        // Live updating progress tracker
         videoElement.addEventListener('timeupdate', () => {
             if (!isDraggingTimeline && videoElement.duration) {
                 const percentage = (videoElement.currentTime / videoElement.duration) * 100;
@@ -491,12 +497,11 @@
             timelineHandle.style.left = `${percent}%`;
         }
 
-        // Scrubber Skip / Peek Interactions
         function setVideoTimeFromScrubber(e) {
             if (!videoElement.duration) return;
             const rect = timelineBar.getBoundingClientRect();
             let offsetX = e.clientX - rect.left;
-            offsetX = Math.max(0, Math.min(offsetX, rect.width)); // Constraint bounds
+            offsetX = Math.max(0, Math.min(offsetX, rect.width));
             const percentage = offsetX / rect.width;
             
             updateTimelineUI(percentage * 100);
@@ -519,7 +524,6 @@
             isDraggingTimeline = false;
         });
 
-        // Close System Deck
         closeBtn.addEventListener('click', () => {
             videoElement.pause();
             playerOverlay.classList.remove('active');
@@ -528,7 +532,8 @@
             timeTotal.textContent = "0:00";
         });
 
-        initRepositoryChannels();
+        // Fire on boot
+        loadVideosFromTxt();
     </script>
 </body>
 </html>
